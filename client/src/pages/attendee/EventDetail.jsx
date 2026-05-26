@@ -17,10 +17,18 @@ const EventDetail = () => {
   const { addToCart } = useCart();
   const [event, setEvent] = useState(null);
   const [message, setMessage] = useState('');
+  const [hasBooked, setHasBooked] = useState(false);
 
   useEffect(() => {
     api.get(`/events/${id}`).then(({ data }) => setEvent(data));
-  }, [id]);
+
+    if (user && user.role === 'attendee') {
+      api.get('/tickets/my').then(({ data }) => {
+        const booked = data.some((ticket) => String(ticket.event?._id || ticket.event) === String(id));
+        setHasBooked(booked);
+      }).catch(() => {});
+    }
+  }, [id, user]);
 
   if (!event) return <LoadingSpinner label="Loading event" />;
 
@@ -66,16 +74,30 @@ const EventDetail = () => {
               <Heart size={18} />
             </button>
           </div>
-          <div className="mt-4 space-y-3">
-            {event.ticketTypes?.map((ticketType) => (
-              <TicketTypeCard key={ticketType._id} ticketType={ticketType} onAdd={addTicket} />
-            ))}
-            {!event.ticketTypes?.length && <p className="font-semibold">Tickets are not configured yet.</p>}
-          </div>
-          {message && <p className="mt-4 font-bold text-copper">{message}</p>}
-          <button className="btn mt-5 w-full" onClick={() => navigate('/checkout')}>
-            <ShoppingCart size={18} /> Checkout
-          </button>
+          
+          {hasBooked ? (
+            <div className="mt-4 space-y-4">
+              <div className="border-2 border-dashed border-ink bg-signal/15 p-4 text-center font-bold">
+                You have already booked a ticket for this event
+              </div>
+              <button className="btn w-full font-bold" onClick={() => navigate('/my-tickets')}>
+                Already Registered (View Tickets)
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 space-y-3">
+                {event.ticketTypes?.map((ticketType) => (
+                  <TicketTypeCard key={ticketType._id} ticketType={ticketType} onAdd={addTicket} />
+                ))}
+                {!event.ticketTypes?.length && <p className="font-semibold">Tickets are not configured yet.</p>}
+              </div>
+              {message && <p className="mt-4 font-bold text-copper">{message}</p>}
+              <button className="btn mt-5 w-full" onClick={() => navigate('/checkout')}>
+                <ShoppingCart size={18} /> Checkout
+              </button>
+            </>
+          )}
         </aside>
       </section>
 

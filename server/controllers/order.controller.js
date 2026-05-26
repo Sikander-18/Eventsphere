@@ -144,6 +144,16 @@ exports.createOrder = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
+    // Prevent duplicate booking for the same event by the same user
+    const existingOrder = await Order.findOne({
+      user: req.user.id,
+      event: eventId,
+      paymentStatus: 'paid'
+    });
+    if (existingOrder) {
+      return res.status(400).json({ message: 'You have already booked a ticket for this event' });
+    }
+
     const totals = await calculateOrder({ eventId, items, discountCode });
 
     if (totals.total === 0) {

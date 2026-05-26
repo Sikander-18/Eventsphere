@@ -21,6 +21,7 @@ const Checkout = () => {
   const [discountCode, setDiscountCode] = useState('');
   const [message, setMessage] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [successTickets, setSuccessTickets] = useState(null);
 
   const pay = async () => {
     if (!items.length) return;
@@ -36,18 +37,18 @@ const Checkout = () => {
 
       if (data.freeCheckout) {
         clearCart();
-        navigate('/my-tickets');
+        setSuccessTickets(data.tickets);
         return;
       }
 
       if (data.mockPayment) {
-        await api.post('/orders/verify', {
+        const verifyRes = await api.post('/orders/verify', {
           razorpayOrderId: data.razorpayOrderId,
           razorpayPaymentId: `mock_payment_${Date.now()}`,
           razorpaySignature: 'mock'
         });
         clearCart();
-        navigate('/my-tickets');
+        setSuccessTickets(verifyRes.data.tickets);
         return;
       }
 
@@ -62,9 +63,9 @@ const Checkout = () => {
         name: 'EventSphere',
         description: items[0].eventTitle,
         handler: async (response) => {
-          await api.post('/orders/verify', response);
+          const verifyRes = await api.post('/orders/verify', response);
           clearCart();
-          navigate('/my-tickets');
+          setSuccessTickets(verifyRes.data.tickets);
         }
       });
       checkout.open();
@@ -74,6 +75,47 @@ const Checkout = () => {
       setProcessing(false);
     }
   };
+
+  if (successTickets) {
+    return (
+      <div className="page-shell max-w-2xl mx-auto space-y-6 text-center py-8">
+        <div className="panel p-8 space-y-6">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-signal border-2 border-ink shadow-hard">
+            <span className="text-3xl font-bold">✓</span>
+          </div>
+          <h1 className="font-display text-5xl">Booking Confirmed!</h1>
+          <p className="font-semibold text-ink/70">
+            Thank you! Your tickets have been successfully generated and confirmed.
+          </p>
+          
+          <div className="space-y-4 text-left border-t-2 border-ink pt-6">
+            <h3 className="font-display text-2xl">Your QR Tickets</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {successTickets.map((ticket, index) => (
+                <div key={ticket._id || index} className="border-2 border-ink p-4 bg-white flex flex-col items-center">
+                  <span className="badge bg-signal text-xs">{ticket.ticketTypeName}</span>
+                  <div className="mt-3 border-2 border-ink p-3 bg-white">
+                    {ticket.qrCodeImage ? (
+                      <img src={ticket.qrCodeImage} alt="Ticket QR" className="h-44 w-44" />
+                    ) : (
+                      <div className="h-44 w-44 grid place-items-center font-bold">QR Loading...</div>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs font-mono font-bold text-ink/50 truncate w-full text-center">
+                    ID: {ticket._id}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button className="btn w-full mt-6" onClick={() => navigate('/my-tickets')}>
+            Go to My Tickets
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-shell grid gap-6 lg:grid-cols-[1fr_360px]">

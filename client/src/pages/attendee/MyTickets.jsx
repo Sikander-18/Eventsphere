@@ -4,14 +4,12 @@ import QRModal from '../../components/QRModal';
 import api from '../../services/api';
 
 const MyTickets = () => {
-  const [orders, setOrders] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    api.get('/orders/my').then(({ data }) => setOrders(data));
+    api.get('/tickets/my').then(({ data }) => setTickets(data));
   }, []);
-
-  const tickets = orders.flatMap((order) => (order.tickets || []).map((ticket) => ({ ...ticket, eventInfo: order.event })));
 
   return (
     <div className="page-shell space-y-5">
@@ -20,8 +18,8 @@ const MyTickets = () => {
         {tickets.map((ticket) => (
           <div key={ticket._id} className="panel p-5">
             <span className="badge bg-signal">{ticket.ticketTypeName}</span>
-            <h2 className="mt-3 font-display text-2xl">{ticket.eventInfo?.title}</h2>
-            <p className="font-semibold text-ink/70">{new Date(ticket.eventInfo?.startDate).toLocaleString()}</p>
+            <h2 className="mt-3 font-display text-2xl">{ticket.event?.title}</h2>
+            <p className="font-semibold text-ink/70">{new Date(ticket.event?.startDate).toLocaleString()}</p>
             <p className="mt-2 text-sm font-bold">{ticket.checkedIn ? 'Checked in' : 'Not checked in'}</p>
             <button className="btn mt-4 w-full" onClick={() => setSelected(ticket)}>
               <QrCode size={18} /> Show QR

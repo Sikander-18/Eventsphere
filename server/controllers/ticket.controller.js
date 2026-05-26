@@ -1,5 +1,6 @@
 const Event = require('../models/Event');
 const TicketType = require('../models/TicketType');
+const Ticket = require('../models/Ticket');
 
 const parseDiscountCodes = (value) => {
   if (!value) return [];
@@ -72,6 +73,18 @@ exports.deleteTicketType = async (req, res) => {
 
     await TicketType.deleteOne({ _id: ticketType._id });
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getMyTickets = async (req, res) => {
+  try {
+    const tickets = await Ticket.find({ user: req.user.id })
+      .populate('event', 'title startDate endDate venue bannerImage')
+      .populate('ticketType')
+      .sort({ createdAt: -1 });
+    res.json(tickets);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
