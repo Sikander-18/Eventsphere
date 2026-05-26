@@ -1,6 +1,12 @@
 const Event = require('../models/Event');
 const TicketType = require('../models/TicketType');
 const Ticket = require('../models/Ticket');
+const Order = require('../models/Order');
+const {
+  DUPLICATE_BOOKING_MESSAGE,
+  ensureTicketsHaveQR,
+  issueTicketsForOrder
+} = require('../services/ticketing.service');
 
 const parseDiscountCodes = (value) => {
   if (!value) return [];
@@ -80,13 +86,28 @@ exports.deleteTicketType = async (req, res) => {
 
 exports.getMyTickets = async (req, res) => {
   try {
+    const paidOrdersMissingTickets = await Order.find({
+      user: req.user.id,
+      paymentStatus: 'paid',
+      $or: [{ tickets: { $exists: false } }, { tickets: { $size: 0 } }]
+    });
+
+    await Promise.all(paidOrdersMissingTickets.map(async (order) => {
+      try {
+        await issueTicketsForOrder(order, { app: req.app });
+      } catch (error) {
+        if (error.message !== DUPLICATE_BOOKING_MESSAGE) {
+          console.error('Paid order ticket repair failed:', error.message);
+        }
+      }
+    }));
+
     const tickets = await Ticket.find({ user: req.user.id })
       .populate('event', 'title startDate endDate venue bannerImage')
       .populate('ticketType')
       .sort({ createdAt: -1 });
-    res.json(tickets);
+    res.json(await ensureTicketsHaveQR(tickets));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-

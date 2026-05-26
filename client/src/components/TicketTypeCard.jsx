@@ -1,8 +1,6 @@
-import { Minus, Plus, ShoppingBag } from 'lucide-react';
-import { useState } from 'react';
+import { ShoppingBag } from 'lucide-react';
 
 const TicketTypeCard = ({ ticketType, onAdd }) => {
-  const [quantity, setQuantity] = useState(1);
   const remaining = Math.max(0, ticketType.capacity - ticketType.sold);
   const isExpired = ticketType.earlyBirdExpiry && new Date(ticketType.earlyBirdExpiry) < new Date();
 
@@ -25,33 +23,13 @@ const TicketTypeCard = ({ ticketType, onAdd }) => {
         </span>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="flex items-center border border-ink">
-          <button 
-            className="grid h-10 w-10 place-items-center bg-paper disabled:opacity-50" 
-            disabled={isExpired} 
-            onClick={() => setQuantity(Math.max(1, quantity - 1))} 
-            title="Decrease"
-          >
-            <Minus size={16} />
-          </button>
-          <span className="grid h-10 w-12 place-items-center border-x border-ink bg-white font-bold">
-            {isExpired ? 0 : quantity}
-          </span>
-          <button 
-            className="grid h-10 w-10 place-items-center bg-paper disabled:opacity-50" 
-            disabled={isExpired} 
-            onClick={() => setQuantity(Math.min(remaining || 1, quantity + 1))} 
-            title="Increase"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+        <span className="text-sm font-bold text-ink/70">Admission pass</span>
         <button 
           className="btn" 
           disabled={!remaining || isExpired} 
-          onClick={() => onAdd(ticketType, quantity)}
+          onClick={() => onAdd(ticketType)}
         >
-          <ShoppingBag size={17} /> {isExpired ? 'Expired' : 'Add'}
+          <ShoppingBag size={17} /> {isExpired ? 'Expired' : 'Select'}
         </button>
       </div>
     </div>
@@ -59,4 +37,3 @@ const TicketTypeCard = ({ ticketType, onAdd }) => {
 };
 
 export default TicketTypeCard;
-

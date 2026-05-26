@@ -6,8 +6,8 @@ const QRModal = ({ ticket, onClose }) => {
 
   const qrValue = ticket.qrCodeData || JSON.stringify({
     ticketId: ticket._id,
-    eventId: ticket.event,
-    userId: ticket.user
+    eventId: ticket.event?._id || ticket.event,
+    userId: ticket.user?._id || ticket.user
   });
 
   return (
@@ -33,4 +33,3 @@ const QRModal = ({ ticket, onClose }) => {
 };
 
 export default QRModal;
-

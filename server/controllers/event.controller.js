@@ -2,8 +2,8 @@ const { Parser } = require('json2csv');
 const Event = require('../models/Event');
 const TicketType = require('../models/TicketType');
 const Review = require('../models/Review');
-const Order = require('../models/Order');
 const Ticket = require('../models/Ticket');
+const { dashboardStatsForEvent } = require('../services/ticketing.service');
 
 const parseJson = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
@@ -114,12 +114,21 @@ exports.getEvent = async (req, res) => {
     const event = await Event.findById(req.params.id).populate('organiser', 'name email linkedinUrl').lean();
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
-    const [ticketTypes, reviews] = await Promise.all([
+    const [ticketTypes, reviews, soldCounts] = await Promise.all([
       TicketType.find({ event: event._id }).lean(),
-      Review.find({ event: event._id }).populate('user', 'name').sort({ createdAt: -1 }).lean()
+      Review.find({ event: event._id }).populate('user', 'name').sort({ createdAt: -1 }).lean(),
+      Ticket.aggregate([
+        { $match: { event: event._id } },
+        { $group: { _id: '$ticketType', sold: { $sum: 1 } } }
+      ])
     ]);
+    const soldMap = new Map(soldCounts.map((item) => [String(item._id), item.sold]));
+    const syncedTicketTypes = ticketTypes.map((ticketType) => ({
+      ...ticketType,
+      sold: soldMap.get(String(ticketType._id)) || 0
+    }));
 
-    res.json({ ...event, ticketTypes, reviews });
+    res.json({ ...event, ticketTypes: syncedTicketTypes, reviews });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -169,19 +178,7 @@ exports.eventDashboard = async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
     if (!ownsEvent(event, req.user)) return res.status(403).json({ message: 'Forbidden' });
 
-    const [registrations, checkedIn, paidOrders] = await Promise.all([
-      Ticket.countDocuments({ event: event._id }),
-      Ticket.countDocuments({ event: event._id, checkedIn: true }),
-      Order.find({ event: event._id, paymentStatus: 'paid' }).select('total createdAt').lean()
-    ]);
-
-    res.json({
-      revenue: paidOrders.reduce((sum, order) => sum + (order.total || 0), 0),
-      totalRegistrations: registrations,
-      checkedIn,
-      checkinPercent: registrations ? Math.round((checkedIn / registrations) * 100) : 0,
-      orders: paidOrders.length
-    });
+    res.json(await dashboardStatsForEvent(event._id));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -228,4 +225,3 @@ exports.myEvents = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

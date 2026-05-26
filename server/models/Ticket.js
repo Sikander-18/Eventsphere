@@ -14,5 +14,8 @@ const ticketSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Ticket', ticketSchema);
+ticketSchema.index({ user: 1, event: 1 }, { unique: true });
+ticketSchema.index({ event: 1, checkedIn: 1 });
+ticketSchema.index({ order: 1 });
 
+module.exports = mongoose.model('Ticket', ticketSchema);

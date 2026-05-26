@@ -15,8 +15,12 @@ const CheckIn = () => {
     api.get(`/checkin/${id}/stats`).then(({ data }) => setStats(data));
     socket.emit('join-event', id);
     socket.on('checkin:update', ({ stats: nextStats }) => setStats(nextStats));
+    socket.on('registration:update', ({ checkinStats }) => {
+      if (checkinStats) setStats(checkinStats);
+    });
     return () => {
       socket.off('checkin:update');
+      socket.off('registration:update');
       socket.disconnect();
     };
   }, [id, socket]);
@@ -25,7 +29,7 @@ const CheckIn = () => {
     event.preventDefault();
     setMessage('');
     try {
-      const { data } = await api.post('/checkin', { ticketId });
+      const { data } = await api.post('/checkin', { ticketId, eventId: id });
       setStats(data);
       setTicketId('');
       setMessage('Checked in');
@@ -46,7 +50,7 @@ const CheckIn = () => {
 
       <form onSubmit={submit} className="panel h-fit space-y-4 p-5">
         <h1 className="font-display text-4xl">Manual QR Entry</h1>
-        <input className="field" placeholder="Ticket ID" value={ticketId} onChange={(event) => setTicketId(event.target.value)} />
+        <input className="field" placeholder="Ticket ID or QR data" value={ticketId} onChange={(event) => setTicketId(event.target.value)} />
         <button className="btn w-full"><ClipboardCheck size={18} /> Check In</button>
         {message && <p className="font-bold text-copper">{message}</p>}
       </form>
@@ -55,4 +59,3 @@ const CheckIn = () => {
 };
 
 export default CheckIn;
-

@@ -32,9 +32,9 @@ const EventDetail = () => {
 
   if (!event) return <LoadingSpinner label="Loading event" />;
 
-  const addTicket = (ticketType, quantity) => {
-    addToCart(event, ticketType, quantity);
-    setMessage(`${quantity} ${ticketType.name} ticket(s) added`);
+  const addTicket = (ticketType) => {
+    addToCart(event, ticketType);
+    setMessage(`${ticketType.name} ticket selected`);
   };
 
   const addWishlist = async () => {
@@ -155,4 +155,3 @@ const EventDetail = () => {
 };
 
 export default EventDetail;
-

@@ -1,12 +1,23 @@
 const Event = require('../models/Event');
 const Order = require('../models/Order');
+const Ticket = require('../models/Ticket');
 const User = require('../models/User');
 
 exports.stats = async (req, res) => {
   try {
-    const [events, users, paidOrders, categories] = await Promise.all([
+    const [events, users, tickets, registrations, checkedIn, paidOrders, categories] = await Promise.all([
       Event.countDocuments(),
       User.countDocuments(),
+      Ticket.countDocuments(),
+      Ticket.aggregate([
+        { $group: { _id: { event: '$event', user: '$user' } } },
+        { $count: 'count' }
+      ]),
+      Ticket.aggregate([
+        { $match: { checkedIn: true } },
+        { $group: { _id: { event: '$event', user: '$user' } } },
+        { $count: 'count' }
+      ]),
       Order.find({ paymentStatus: 'paid' }).select('total').lean(),
       Event.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }, { $sort: { count: -1 } }])
     ]);
@@ -14,6 +25,9 @@ exports.stats = async (req, res) => {
     res.json({
       totalEvents: events,
       totalUsers: users,
+      totalTickets: tickets,
+      totalRegistrations: registrations[0]?.count || 0,
+      checkedIn: checkedIn[0]?.count || 0,
       revenue: paidOrders.reduce((sum, order) => sum + (order.total || 0), 0),
       topCategories: categories
     });
@@ -42,4 +56,3 @@ exports.toggleFeature = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

@@ -15,7 +15,7 @@ const loadRazorpay = () => new Promise((resolve) => {
 });
 
 const Checkout = () => {
-  const { items, subtotal, updateQuantity, removeFromCart, clearCart } = useCart();
+  const { items, subtotal, removeFromCart, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [discountCode, setDiscountCode] = useState('');
@@ -30,12 +30,12 @@ const Checkout = () => {
     try {
       const payload = {
         eventId: items[0].eventId,
-        items: items.map((item) => ({ ticketTypeId: item.ticketTypeId, quantity: item.quantity })),
+        items: items.map((item) => ({ ticketTypeId: item.ticketTypeId, quantity: 1 })),
         discountCode: discountCode || undefined
       };
       const { data } = await api.post('/orders', payload);
 
-      if (data.freeCheckout) {
+      if (data.freeCheckout || data.alreadyConfirmed) {
         clearCart();
         setSuccessTickets(data.tickets);
         return;
@@ -63,14 +63,22 @@ const Checkout = () => {
         name: 'EventSphere',
         description: items[0].eventTitle,
         handler: async (response) => {
-          const verifyRes = await api.post('/orders/verify', response);
-          clearCart();
-          setSuccessTickets(verifyRes.data.tickets);
+          try {
+            const verifyRes = await api.post('/orders/verify', response);
+            clearCart();
+            setSuccessTickets(verifyRes.data.tickets);
+          } catch (error) {
+            const nextMessage = error.response?.data?.message || error.message || 'Payment verification failed';
+            if (error.response?.status === 409) clearCart();
+            setMessage(nextMessage);
+          }
         }
       });
       checkout.open();
     } catch (error) {
-      setMessage(error.response?.data?.message || error.message || 'Checkout failed');
+      const nextMessage = error.response?.data?.message || error.message || 'Checkout failed';
+      if (error.response?.status === 409) clearCart();
+      setMessage(nextMessage);
     } finally {
       setProcessing(false);
     }
@@ -129,7 +137,7 @@ const Checkout = () => {
                 <p className="text-sm font-semibold text-ink/65">{item.eventTitle}</p>
               </div>
               <span className="font-bold">₹{item.price}</span>
-              <input className="field" type="number" min="1" value={item.quantity} onChange={(event) => updateQuantity(item.ticketTypeId, Number(event.target.value))} />
+              <span className="badge justify-center bg-signal">Qty 1</span>
               <button className="btn secondary px-3" onClick={() => removeFromCart(item.ticketTypeId)} title="Remove">
                 <Trash2 size={17} />
               </button>
@@ -177,4 +185,3 @@ const Checkout = () => {
 };
 
 export default Checkout;
-

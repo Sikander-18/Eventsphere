@@ -2,37 +2,42 @@ import { createContext, useContext, useMemo, useState } from 'react';
 
 const CartContext = createContext(null);
 
+const normalizeItems = (items) => (Array.isArray(items) ? items : [])
+  .filter((item) => item?.eventId && item?.ticketTypeId)
+  .slice(0, 1)
+  .map((item) => ({ ...item, quantity: 1 }));
+
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState(() => {
     const raw = localStorage.getItem('eventsphere_cart');
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    try {
+      return normalizeItems(JSON.parse(raw));
+    } catch {
+      return [];
+    }
   });
 
   const persist = (next) => {
-    setItems(next);
-    localStorage.setItem('eventsphere_cart', JSON.stringify(next));
+    const normalized = normalizeItems(next);
+    setItems(normalized);
+    localStorage.setItem('eventsphere_cart', JSON.stringify(normalized));
   };
 
-  const addToCart = (event, ticketType, quantity = 1) => {
-    const next = items.length && items[0].eventId !== event._id ? [] : [...items];
-    const existing = next.find((item) => item.ticketTypeId === ticketType._id);
-    if (existing) existing.quantity += quantity;
-    else {
-      next.push({
-        eventId: event._id,
-        eventTitle: event.title,
-        ticketTypeId: ticketType._id,
-        name: ticketType.name,
-        price: ticketType.isFree ? 0 : ticketType.price,
-        quantity
-      });
-    }
-    persist(next);
+  const addToCart = (event, ticketType) => {
+    persist([{
+      eventId: event._id,
+      eventTitle: event.title,
+      ticketTypeId: ticketType._id,
+      name: ticketType.name,
+      price: ticketType.isFree ? 0 : ticketType.price,
+      quantity: 1
+    }]);
   };
 
-  const updateQuantity = (ticketTypeId, quantity) => {
+  const updateQuantity = (ticketTypeId) => {
     const next = items
-      .map((item) => item.ticketTypeId === ticketTypeId ? { ...item, quantity: Math.max(1, quantity) } : item)
+      .map((item) => item.ticketTypeId === ticketTypeId ? { ...item, quantity: 1 } : item)
       .filter((item) => item.quantity > 0);
     persist(next);
   };

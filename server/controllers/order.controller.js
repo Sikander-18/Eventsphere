@@ -2,10 +2,14 @@ const Event = require('../models/Event');
 const Order = require('../models/Order');
 const Ticket = require('../models/Ticket');
 const TicketType = require('../models/TicketType');
-const User = require('../models/User');
-const { generateQR } = require('../services/qr.service');
 const { createOrder: createRazorpayOrder, verifySignature } = require('../services/razorpay.service');
-const { sendTicketConfirmation } = require('../services/mail.service');
+const {
+  DUPLICATE_BOOKING_MESSAGE,
+  ensureSingleTicketRequest,
+  ensureTicketsHaveQR,
+  hasConfirmedRegistration,
+  issueTicketsForOrder
+} = require('../services/ticketing.service');
 
 const asItems = (items = []) => items
   .map((item) => ({
@@ -21,9 +25,19 @@ const calculateOrder = async ({ eventId, items, discountCode }) => {
     error.status = 400;
     throw error;
   }
+  ensureSingleTicketRequest(cleanItems);
 
   const ticketTypes = await TicketType.find({ _id: { $in: cleanItems.map((item) => item.ticketTypeId) } });
   const ticketMap = new Map(ticketTypes.map((ticketType) => [String(ticketType._id), ticketType]));
+  const soldTickets = await Ticket.find({
+    event: eventId,
+    ticketType: { $in: ticketTypes.map((ticketType) => ticketType._id) }
+  }).select('ticketType').lean();
+  const soldMap = soldTickets.reduce((acc, ticket) => {
+    const key = String(ticket.ticketType);
+    acc.set(key, (acc.get(key) || 0) + 1);
+    return acc;
+  }, new Map());
 
   let subtotal = 0;
   let discountApplied = 0;
@@ -46,7 +60,8 @@ const calculateOrder = async ({ eventId, items, discountCode }) => {
       error.status = 400;
       throw error;
     }
-    if (ticketType.sold + item.quantity > ticketType.capacity) {
+    const sold = Math.max(Number(ticketType.sold || 0), soldMap.get(String(ticketType._id)) || 0);
+    if (sold + item.quantity > ticketType.capacity) {
       const error = new Error(`${ticketType.name} does not have enough capacity`);
       error.status = 409;
       throw error;
@@ -82,59 +97,6 @@ const calculateOrder = async ({ eventId, items, discountCode }) => {
   };
 };
 
-const issueTicketsForOrder = async (order) => {
-  if (order.tickets?.length) {
-    return Ticket.find({ _id: { $in: order.tickets } });
-  }
-
-  const tickets = [];
-
-  for (const item of order.items) {
-    const ticketType = await TicketType.findById(item.ticketType);
-    if (!ticketType || ticketType.sold + item.quantity > ticketType.capacity) {
-      const error = new Error(`${item.name} no longer has enough capacity`);
-      error.status = 409;
-      throw error;
-    }
-
-    for (let index = 0; index < item.quantity; index += 1) {
-      const ticket = await Ticket.create({
-        order: order._id,
-        user: order.user,
-        event: order.event,
-        ticketType: item.ticketType,
-        ticketTypeName: item.name
-      });
-      const qr = await generateQR(ticket._id, order.event, order.user);
-      ticket.qrCodeData = qr.qrCodeData;
-      ticket.qrCodeImage = qr.qrCodeImage;
-      await ticket.save();
-      tickets.push(ticket);
-    }
-
-    ticketType.sold += item.quantity;
-    if (order.discountCode) {
-      const code = ticketType.discountCodes.find((discount) => (
-        discount.code?.toLowerCase() === String(order.discountCode).toLowerCase()
-      ));
-      if (code) code.usedCount += item.quantity;
-    }
-    await ticketType.save();
-  }
-
-  order.tickets = tickets.map((ticket) => ticket._id);
-  await order.save();
-  await Event.findByIdAndUpdate(order.event, { $inc: { totalRevenue: order.total } });
-
-  const [user, hydratedOrder] = await Promise.all([
-    User.findById(order.user),
-    Order.findById(order._id)
-  ]);
-  if (user) await sendTicketConfirmation(user, hydratedOrder || order, tickets);
-
-  return tickets;
-};
-
 exports.createOrder = async (req, res) => {
   try {
     if (req.user.role !== 'attendee') {
@@ -144,14 +106,19 @@ exports.createOrder = async (req, res) => {
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: 'Event not found' });
 
-    // Prevent duplicate booking for the same event by the same user
-    const existingOrder = await Order.findOne({
+    const existingTicket = await hasConfirmedRegistration(req.user.id, eventId);
+    if (existingTicket) {
+      return res.status(409).json({ message: DUPLICATE_BOOKING_MESSAGE });
+    }
+
+    const existingPaidOrder = await Order.findOne({
       user: req.user.id,
       event: eventId,
       paymentStatus: 'paid'
     });
-    if (existingOrder) {
-      return res.status(400).json({ message: 'You have already booked a ticket for this event' });
+    if (existingPaidOrder) {
+      const tickets = await issueTicketsForOrder(existingPaidOrder, { app: req.app });
+      return res.status(200).json({ success: true, alreadyConfirmed: true, tickets });
     }
 
     const totals = await calculateOrder({ eventId, items, discountCode });
@@ -168,8 +135,14 @@ exports.createOrder = async (req, res) => {
         razorpayOrderId: `free_${Date.now()}`,
         paymentStatus: 'paid'
       });
-      const tickets = await issueTicketsForOrder(order);
-      return res.status(201).json({ success: true, freeCheckout: true, tickets });
+      try {
+        const tickets = await issueTicketsForOrder(order, { app: req.app });
+        return res.status(201).json({ success: true, freeCheckout: true, tickets });
+      } catch (error) {
+        order.paymentStatus = 'failed';
+        await order.save();
+        throw error;
+      }
     }
 
     const razorpayOrder = await createRazorpayOrder(totals.total);
@@ -203,20 +176,52 @@ exports.verifyPayment = async (req, res) => {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     const order = await Order.findOne({ razorpayOrderId });
     if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (String(order.user) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
 
     if (order.paymentStatus === 'paid') {
       const existingTickets = await Ticket.find({ _id: { $in: order.tickets } });
-      return res.json({ success: true, tickets: existingTickets });
+      if (existingTickets.length) {
+        return res.json({ success: true, tickets: await ensureTicketsHaveQR(existingTickets) });
+      }
+      try {
+        const tickets = await issueTicketsForOrder(order, { app: req.app });
+        return res.json({ success: true, tickets });
+      } catch (error) {
+        if (error.status === 409) {
+          order.paymentStatus = 'failed';
+          await order.save();
+        }
+        throw error;
+      }
     }
 
     const valid = verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!valid) return res.status(400).json({ message: 'Invalid Razorpay signature' });
 
+    const duplicateRegistration = await hasConfirmedRegistration(order.user, order.event, order._id);
+    if (duplicateRegistration) {
+      order.paymentStatus = 'failed';
+      order.razorpayPaymentId = razorpayPaymentId;
+      await order.save();
+      return res.status(409).json({ message: DUPLICATE_BOOKING_MESSAGE });
+    }
+
     order.paymentStatus = 'paid';
     order.razorpayPaymentId = razorpayPaymentId;
     await order.save();
 
-    const tickets = await issueTicketsForOrder(order);
+    let tickets;
+    try {
+      tickets = await issueTicketsForOrder(order, { app: req.app });
+    } catch (error) {
+      if (error.status === 409) {
+        order.paymentStatus = 'failed';
+        await order.save();
+      }
+      throw error;
+    }
     res.json({ success: true, tickets });
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message });
@@ -286,4 +291,3 @@ exports.updateRefund = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

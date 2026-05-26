@@ -1,4 +1,5 @@
 import { QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState } from 'react';
 import QRModal from '../../components/QRModal';
 import api from '../../services/api';
@@ -21,6 +22,13 @@ const MyTickets = () => {
             <h2 className="mt-3 font-display text-2xl">{ticket.event?.title}</h2>
             <p className="font-semibold text-ink/70">{new Date(ticket.event?.startDate).toLocaleString()}</p>
             <p className="mt-2 text-sm font-bold">{ticket.checkedIn ? 'Checked in' : 'Not checked in'}</p>
+            <div className="mt-4 grid place-items-center border-2 border-ink bg-white p-3">
+              {ticket.qrCodeImage ? (
+                <img src={ticket.qrCodeImage} alt="Ticket QR code" className="h-28 w-28" />
+              ) : (
+                <QRCodeSVG value={ticket.qrCodeData || ticket._id} size={112} />
+              )}
+            </div>
             <button className="btn mt-4 w-full" onClick={() => setSelected(ticket)}>
               <QrCode size={18} /> Show QR
             </button>
@@ -34,4 +42,3 @@ const MyTickets = () => {
 };
 
 export default MyTickets;
-

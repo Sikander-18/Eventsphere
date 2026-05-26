@@ -1,16 +1,24 @@
 import { CalendarPlus, ClipboardCheck, Download, IndianRupee, Ticket } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../services/api';
+import { io } from 'socket.io-client';
+import api, { API_URL } from '../../services/api';
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({});
+  const socket = useMemo(() => io(API_URL, { transports: ['websocket'] }), []);
 
   useEffect(() => {
+    socket.on('registration:update', ({ eventId, stats: nextStats }) => {
+      if (!eventId || !nextStats) return;
+      setStats((current) => ({ ...current, [eventId]: nextStats }));
+    });
+
     const load = async () => {
       const { data } = await api.get('/events/mine');
       setEvents(data);
+      data.forEach((event) => socket.emit('join-event', event._id));
       const pairs = await Promise.all(data.map(async (event) => {
         try {
           const response = await api.get(`/events/${event._id}/dashboard`);
@@ -22,7 +30,12 @@ const Dashboard = () => {
       setStats(Object.fromEntries(pairs));
     };
     load();
-  }, []);
+
+    return () => {
+      socket.off('registration:update');
+      socket.disconnect();
+    };
+  }, [socket]);
 
   const totals = Object.values(stats).reduce((acc, item) => ({
     revenue: acc.revenue + (item.revenue || 0),
@@ -69,4 +82,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
