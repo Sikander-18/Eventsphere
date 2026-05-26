@@ -6,7 +6,16 @@ import api from '../../services/api';
 const ManageTickets = () => {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
-  const [form, setForm] = useState({ name: 'General', price: 0, capacity: 50, code: '', percentOff: 10, usageLimit: 20 });
+  const [form, setForm] = useState({ 
+    name: 'General', 
+    price: 0, 
+    capacity: 50, 
+    code: '', 
+    percentOff: 10, 
+    usageLimit: 20,
+    earlyBirdExpiry: '',
+    discountExpiry: ''
+  });
 
   const load = () => api.get(`/events/${id}`).then(({ data }) => setEvent(data));
 
@@ -19,16 +28,27 @@ const ManageTickets = () => {
     const discountCodes = form.code ? [{
       code: form.code,
       percentOff: Number(form.percentOff),
-      usageLimit: Number(form.usageLimit)
+      usageLimit: Number(form.usageLimit),
+      expiry: form.discountExpiry || undefined
     }] : [];
     await api.post(`/events/${id}/tickets`, {
       name: form.name,
       price: Number(form.price),
       capacity: Number(form.capacity),
       isFree: Number(form.price) === 0,
+      earlyBirdExpiry: form.earlyBirdExpiry || undefined,
       discountCodes
     });
-    setForm({ ...form, name: '', price: 0, capacity: 50, code: '' });
+    setForm({ 
+      name: '', 
+      price: 0, 
+      capacity: 50, 
+      code: '', 
+      percentOff: 10, 
+      usageLimit: 20, 
+      earlyBirdExpiry: '', 
+      discountExpiry: '' 
+    });
     load();
   };
 
@@ -60,19 +80,31 @@ const ManageTickets = () => {
         </div>
 
         <div className="space-y-1">
+          <label className="text-sm font-bold text-ink/75 block">Early Bird / Sales Expiry (Optional)</label>
+          <input className="field" type="datetime-local" value={form.earlyBirdExpiry} onChange={(event) => setForm({ ...form, earlyBirdExpiry: event.target.value })} />
+          <p className="text-[11px] font-semibold text-ink/50 mt-0.5">Ticket tier will expire and become unavailable after this date.</p>
+        </div>
+
+        <div className="space-y-1">
           <label className="text-sm font-bold text-ink/75 block">Discount Code (Optional)</label>
           <input className="field" placeholder="e.g. EARLYBIRD20" value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} />
         </div>
 
         {form.code && (
-          <div className="grid grid-cols-2 gap-3 p-3 bg-ink/[0.02] border border-dashed border-ink/20 rounded">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-ink/70 block">Discount Rate (%)</label>
-              <input className="field" type="number" placeholder="% off" value={form.percentOff} onChange={(event) => setForm({ ...form, percentOff: event.target.value })} min="1" max="100" />
+          <div className="space-y-3 p-3 bg-ink/[0.02] border border-dashed border-ink/20 rounded">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-ink/70 block">Discount Rate (%)</label>
+                <input className="field" type="number" placeholder="% off" value={form.percentOff} onChange={(event) => setForm({ ...form, percentOff: event.target.value })} min="1" max="100" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-ink/70 block">Usage Limit</label>
+                <input className="field" type="number" placeholder="Max users" value={form.usageLimit} onChange={(event) => setForm({ ...form, usageLimit: event.target.value })} min="1" />
+              </div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-ink/70 block">Usage Limit</label>
-              <input className="field" type="number" placeholder="Max users" value={form.usageLimit} onChange={(event) => setForm({ ...form, usageLimit: event.target.value })} min="1" />
+              <label className="text-xs font-bold text-ink/70 block">Expiry Date (Optional)</label>
+              <input className="field" type="datetime-local" value={form.discountExpiry} onChange={(event) => setForm({ ...form, discountExpiry: event.target.value })} />
             </div>
           </div>
         )}
@@ -88,6 +120,11 @@ const ManageTickets = () => {
               <span className="badge bg-signal">{ticket.isFree ? 'Free' : `₹${ticket.price}`}</span>
               <h3 className="mt-2 font-display text-2xl">{ticket.name}</h3>
               <p className="font-semibold text-ink/70">{ticket.sold}/{ticket.capacity} sold</p>
+              {ticket.earlyBirdExpiry && (
+                <p className="text-xs text-signal font-semibold mt-1">
+                  Sales end: {new Date(ticket.earlyBirdExpiry).toLocaleString()}
+                </p>
+              )}
             </div>
             <button className="btn secondary px-3" onClick={() => remove(ticket._id)} title="Delete">
               <Trash2 size={18} />

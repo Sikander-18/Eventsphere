@@ -41,6 +41,11 @@ const calculateOrder = async ({ eventId, items, discountCode }) => {
       error.status = 400;
       throw error;
     }
+    if (ticketType.earlyBirdExpiry && new Date(ticketType.earlyBirdExpiry) < new Date()) {
+      const error = new Error(`Ticket sales for "${ticketType.name}" have ended because the sale deadline has passed.`);
+      error.status = 400;
+      throw error;
+    }
     if (ticketType.sold + item.quantity > ticketType.capacity) {
       const error = new Error(`${ticketType.name} does not have enough capacity`);
       error.status = 409;
