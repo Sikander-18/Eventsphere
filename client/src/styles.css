@@ -93,3 +93,42 @@ button, input, textarea, select {
   border: 1.5px solid #151515;
 }
 
+/* Premium styling overrides for html5-qrcode camera scanner */
+#qr-reader {
+  border: 1.5px solid #151515 !important;
+  box-shadow: 4px 4px 0 #151515 !important;
+  background: #fffaf0 !important;
+  border-radius: 0px !important;
+  padding: 1rem !important;
+}
+
+#qr-reader button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.45rem !important;
+  border: 1.5px solid #151515 !important;
+  background: #d7ff52 !important;
+  color: #151515 !important;
+  padding: 0.5rem 0.8rem !important;
+  font-weight: 700 !important;
+  font-size: 0.9rem !important;
+  cursor: pointer !important;
+  transition: transform 150ms ease, box-shadow 150ms ease !important;
+  margin: 5px !important;
+}
+
+#qr-reader button:hover {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 2px 2px 0 #151515 !important;
+}
+
+#qr-reader select {
+  border: 1.5px solid #151515 !important;
+  background: #fffaf0 !important;
+  padding: 0.4rem 0.6rem !important;
+  font-size: 0.9rem !important;
+  margin: 5px !important;
+  outline: none !important;
+}
+
