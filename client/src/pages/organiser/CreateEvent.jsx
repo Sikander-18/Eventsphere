@@ -30,6 +30,7 @@ const CreateEvent = () => {
   const [bannerImage, setBannerImage] = useState(null);
   const [bullets, setBullets] = useState('');
   const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const token = localStorage.getItem('eventsphere_token');
 
   // Interactive Lists State
@@ -151,6 +152,7 @@ const CreateEvent = () => {
   const submit = async (event) => {
     event.preventDefault();
     setMessage('');
+    setSaving(true);
     try {
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => body.append(key, value));
@@ -170,6 +172,7 @@ const CreateEvent = () => {
       navigate(`/organiser/events/${data._id}/tickets`);
     } catch (error) {
       setMessage(error.response?.data?.message || 'Could not save event');
+      setSaving(false);
     }
   };
 
@@ -367,7 +370,18 @@ const CreateEvent = () => {
             <input className="field" type="file" accept="image/*" onChange={(event) => setBannerImage(event.target.files?.[0])} />
           </div>
           
-          <button className="btn dark w-full" type="submit"><Save size={18} /> Save event</button>
+          <button className="btn dark w-full" type="submit" disabled={saving}>
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving event...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <Save size={18} /> Save event
+              </span>
+            )}
+          </button>
           {message && <p className="font-bold text-copper">{message}</p>}
         </aside>
       </form>

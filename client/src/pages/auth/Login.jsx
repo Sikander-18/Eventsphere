@@ -9,16 +9,19 @@ const Login = () => {
   const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const submit = async (event) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
     try {
       const user = await login(form.email, form.password);
       const fallback = user.role === 'organiser' ? '/organiser/dashboard' : user.role === 'admin' ? '/admin' : '/';
       navigate(location.state?.from?.pathname || fallback);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
+      setLoading(false);
     }
   };
 
@@ -33,19 +36,28 @@ const Login = () => {
         <div className="space-y-3">
           <div className="space-y-1">
             <label className="text-sm font-bold text-ink/70 block">Email Address</label>
-            <input className="field" type="email" placeholder="youremail@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
+            <input className="field" type="email" placeholder="youremail@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required disabled={loading} />
           </div>
 
           <div className="space-y-1">
             <label className="text-sm font-bold text-ink/70 block">Password</label>
-            <input className="field" type="password" placeholder="Enter your password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required />
+            <input className="field" type="password" placeholder="Enter your password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required disabled={loading} />
           </div>
         </div>
 
         {error && <p className="font-bold text-copper mt-2">{error}</p>}
         
-        <button className="btn w-full mt-2" type="submit">
-          <LogIn size={18} /> Login
+        <button className="btn w-full mt-2" type="submit" disabled={loading}>
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Logging in...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <LogIn size={18} /> Login
+            </span>
+          )}
         </button>
         
         <p className="text-center font-semibold text-sm pt-2">
