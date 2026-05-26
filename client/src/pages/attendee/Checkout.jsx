@@ -1,0 +1,129 @@
+import { CreditCard, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import api from '../../services/api';
+
+const loadRazorpay = () => new Promise((resolve) => {
+  if (window.Razorpay) return resolve(true);
+  const script = document.createElement('script');
+  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  script.onload = () => resolve(true);
+  script.onerror = () => resolve(false);
+  document.body.appendChild(script);
+});
+
+const Checkout = () => {
+  const { items, subtotal, updateQuantity, removeFromCart, clearCart } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [discountCode, setDiscountCode] = useState('');
+  const [message, setMessage] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  const pay = async () => {
+    if (!items.length) return;
+    setProcessing(true);
+    setMessage('');
+    try {
+      const payload = {
+        eventId: items[0].eventId,
+        items: items.map((item) => ({ ticketTypeId: item.ticketTypeId, quantity: item.quantity })),
+        discountCode: discountCode || undefined
+      };
+      const { data } = await api.post('/orders', payload);
+
+      if (data.freeCheckout) {
+        clearCart();
+        navigate('/my-tickets');
+        return;
+      }
+
+      if (data.mockPayment) {
+        await api.post('/orders/verify', {
+          razorpayOrderId: data.razorpayOrderId,
+          razorpayPaymentId: `mock_payment_${Date.now()}`,
+          razorpaySignature: 'mock'
+        });
+        clearCart();
+        navigate('/my-tickets');
+        return;
+      }
+
+      const ready = await loadRazorpay();
+      if (!ready || !window.Razorpay) throw new Error('Razorpay checkout could not load');
+
+      const checkout = new window.Razorpay({
+        key: data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.razorpayOrderId,
+        name: 'EventSphere',
+        description: items[0].eventTitle,
+        handler: async (response) => {
+          await api.post('/orders/verify', response);
+          clearCart();
+          navigate('/my-tickets');
+        }
+      });
+      checkout.open();
+    } catch (error) {
+      setMessage(error.response?.data?.message || error.message || 'Checkout failed');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <div className="page-shell grid gap-6 lg:grid-cols-[1fr_360px]">
+      <section className="panel p-5">
+        <h1 className="font-display text-4xl">Checkout</h1>
+        <div className="mt-5 space-y-3">
+          {items.map((item) => (
+            <div key={item.ticketTypeId} className="grid gap-3 border-2 border-ink bg-white p-4 sm:grid-cols-[1fr_120px_120px_auto] sm:items-center">
+              <div>
+                <strong>{item.name}</strong>
+                <p className="text-sm font-semibold text-ink/65">{item.eventTitle}</p>
+              </div>
+              <span className="font-bold">₹{item.price}</span>
+              <input className="field" type="number" min="1" value={item.quantity} onChange={(event) => updateQuantity(item.ticketTypeId, Number(event.target.value))} />
+              <button className="btn secondary px-3" onClick={() => removeFromCart(item.ticketTypeId)} title="Remove">
+                <Trash2 size={17} />
+              </button>
+            </div>
+          ))}
+          {!items.length && <p className="border-2 border-ink bg-white p-4 font-semibold">Your cart is empty.</p>}
+        </div>
+      </section>
+
+      <aside className="panel h-fit p-5">
+        <h2 className="font-display text-3xl">Order</h2>
+        <div className="mt-4 space-y-3">
+          <input className="field" placeholder="Discount code" value={discountCode} onChange={(event) => setDiscountCode(event.target.value)} />
+          <div className="flex justify-between border-y-2 border-ink py-3 text-xl font-bold">
+            <span>Subtotal</span>
+            <span>₹{subtotal}</span>
+          </div>
+          
+          {!user ? (
+            <div className="space-y-2">
+              <p className="font-bold text-copper text-xs">You must be logged in as an Attendee to purchase tickets.</p>
+              <button className="btn w-full font-bold" onClick={() => navigate('/login', { state: { from: { pathname: '/checkout' } } })}>
+                Login / Register to Pay
+              </button>
+            </div>
+          ) : (
+            <button className="btn w-full font-bold" disabled={!items.length || processing} onClick={pay}>
+              <CreditCard size={18} /> {processing ? 'Processing...' : subtotal === 0 ? 'Confirm Free Tickets' : 'Pay Now'}
+            </button>
+          )}
+          {message && <p className="font-bold text-copper">{message}</p>}
+        </div>
+      </aside>
+    </div>
+  );
+};
+
+export default Checkout;
+

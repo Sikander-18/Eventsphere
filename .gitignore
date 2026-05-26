@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.vercel/
+npm-debug.log*
+
+mongodb.txt
+grok api.txt
+cloudinary.txt
+gmail.txt
+
+client/node_modules/
+server/node_modules/
+client/dist/
+server/.env
+client/.env
+
+
