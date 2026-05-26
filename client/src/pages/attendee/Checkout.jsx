@@ -64,7 +64,10 @@ const Checkout = () => {
         description: items[0].eventTitle,
         handler: async (response) => {
           try {
-            const verifyRes = await api.post('/orders/verify', response);
+            const verifyRes = await api.post('/orders/verify', {
+              ...response,
+              orderId: data.orderId
+            });
             clearCart();
             setSuccessTickets(verifyRes.data.tickets);
           } catch (error) {

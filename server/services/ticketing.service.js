@@ -174,15 +174,22 @@ const issueTicketsForOrder = async (order, options = {}) => {
   await Event.findByIdAndUpdate(order.event, { $inc: { totalRevenue: order.total } });
 
   if (options.notify !== false) {
-    try {
-      const [user, hydratedOrder] = await Promise.all([
-        User.findById(order.user),
-        Order.findById(order._id)
-      ]);
-      if (user) await sendTicketConfirmation(user, hydratedOrder || order, tickets);
-    } catch (error) {
-      console.error('Ticket confirmation email failed:', error.message);
-    }
+    // Run the email notification setup and dispatch asynchronously in the background
+    // to prevent SMTP/network latencies from blocking the main Express response thread.
+    Promise.all([
+      User.findById(order.user),
+      Order.findById(order._id)
+    ])
+      .then(([user, hydratedOrder]) => {
+        if (user) {
+          sendTicketConfirmation(user, hydratedOrder || order, tickets).catch((err) => {
+            console.error('Background ticket confirmation email failed:', err.message);
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Ticket confirmation background setup failed:', error.message);
+      });
   }
 
   await emitRegistrationUpdate(options.app, order.event);

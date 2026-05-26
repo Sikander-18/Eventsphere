@@ -173,8 +173,19 @@ exports.createOrder = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
   try {
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
-    const order = await Order.findOne({ razorpayOrderId });
+    const orderId = req.body.orderId;
+    const razorpayOrderId = req.body.razorpayOrderId || req.body.razorpay_order_id;
+    const razorpayPaymentId = req.body.razorpayPaymentId || req.body.razorpay_payment_id;
+    const razorpaySignature = req.body.razorpaySignature || req.body.razorpay_signature;
+
+    let order;
+    if (orderId) {
+      order = await Order.findById(orderId);
+    }
+    if (!order && razorpayOrderId) {
+      order = await Order.findOne({ razorpayOrderId });
+    }
+
     if (!order) return res.status(404).json({ message: 'Order not found' });
     if (String(order.user) !== String(req.user.id)) {
       return res.status(403).json({ message: 'Forbidden' });
@@ -197,7 +208,7 @@ exports.verifyPayment = async (req, res) => {
       }
     }
 
-    const valid = verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    const valid = verifySignature(razorpayOrderId || order.razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!valid) return res.status(400).json({ message: 'Invalid Razorpay signature' });
 
     const duplicateRegistration = await hasConfirmedRegistration(order.user, order.event, order._id);

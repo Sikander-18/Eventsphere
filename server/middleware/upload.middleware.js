@@ -8,13 +8,17 @@ const upload = multer({
 
 const uploadToCloudinary = async (req, res, next) => {
   if (!req.file) return next();
+
+  // Create Base64 Data URI supporting all image types dynamically based on mimetype (e.g., image/webp, image/png, etc.)
+  const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
   if (!hasCloudinaryConfig) {
-    req.fileUrl = '';
+    console.log('Cloudinary not configured. Storing image as Base64 data URI.');
+    req.fileUrl = dataUri;
     return next();
   }
 
   try {
-    const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const result = await cloudinary.uploader.upload(dataUri, {
       folder: 'eventsphere',
       resource_type: 'image'
@@ -22,7 +26,9 @@ const uploadToCloudinary = async (req, res, next) => {
     req.fileUrl = result.secure_url;
     next();
   } catch (error) {
-    res.status(500).json({ message: 'Image upload failed', error: error.message });
+    console.warn('Cloudinary upload failed. Falling back gracefully to Base64 data URI:', error.message);
+    req.fileUrl = dataUri;
+    next();
   }
 };
 
