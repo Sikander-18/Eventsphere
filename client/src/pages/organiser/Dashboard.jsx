@@ -2,11 +2,13 @@ import { CalendarPlus, ClipboardCheck, Download, IndianRupee, Ticket } from 'luc
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import api, { API_URL } from '../../services/api';
 
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({});
+  const [loading, setLoading] = useState(true);
   const socket = useMemo(() => io(API_URL, { transports: ['websocket'] }), []);
 
   useEffect(() => {
@@ -16,18 +18,24 @@ const Dashboard = () => {
     });
 
     const load = async () => {
-      const { data } = await api.get('/events/mine');
-      setEvents(data);
-      data.forEach((event) => socket.emit('join-event', event._id));
-      const pairs = await Promise.all(data.map(async (event) => {
-        try {
-          const response = await api.get(`/events/${event._id}/dashboard`);
-          return [event._id, response.data];
-        } catch {
-          return [event._id, {}];
-        }
-      }));
-      setStats(Object.fromEntries(pairs));
+      try {
+        const { data } = await api.get('/events/mine');
+        setEvents(data);
+        data.forEach((event) => socket.emit('join-event', event._id));
+        const pairs = await Promise.all(data.map(async (event) => {
+          try {
+            const response = await api.get(`/events/${event._id}/dashboard`);
+            return [event._id, response.data];
+          } catch {
+            return [event._id, {}];
+          }
+        }));
+        setStats(Object.fromEntries(pairs));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
 
@@ -42,6 +50,10 @@ const Dashboard = () => {
     registrations: acc.registrations + (item.totalRegistrations || 0),
     checkedIn: acc.checkedIn + (item.checkedIn || 0)
   }), { revenue: 0, registrations: 0, checkedIn: 0 });
+
+  if (loading) {
+    return <LoadingSpinner label="Loading organiser dashboard" />;
+  }
 
   return (
     <div className="page-shell space-y-6">

@@ -1,14 +1,25 @@
 import { BarChart3, CalendarDays, ClipboardCheck, IndianRupee, Ticket, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../services/api';
 import ManageEvents from './ManageEvents';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/admin/stats').then(({ data }) => setStats(data));
+    api.get('/admin/stats')
+      .then(({ data }) => {
+        setStats(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return <LoadingSpinner label="Loading admin stats dashboard" />;
+  }
 
   return (
     <div className="page-shell space-y-6">

@@ -2,15 +2,26 @@ import { QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState } from 'react';
 import QRModal from '../../components/QRModal';
+import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../services/api';
 
 const MyTickets = () => {
   const [tickets, setTickets] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/tickets/my').then(({ data }) => setTickets(data));
+    api.get('/tickets/my')
+      .then(({ data }) => {
+        setTickets(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return <LoadingSpinner label="Loading your tickets" />;
+  }
 
   return (
     <div className="page-shell space-y-5">
