@@ -28,7 +28,15 @@ const allowedOrigins = rawOrigins.split(',').map((origin) => origin.trim()).filt
 const corsOptions = {
   credentials: true,
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = 
+      allowedOrigins.includes(origin) ||
+      origin.includes('localhost') ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com');
+
+    if (isAllowed) return callback(null, true);
     return callback(null, false);
   }
 };
