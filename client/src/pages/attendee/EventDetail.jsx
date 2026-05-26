@@ -8,7 +8,7 @@ import TicketTypeCard from '../../components/TicketTypeCard';
 import VenueMap from '../../components/VenueMap';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import api from '../../services/api';
+import api, { getImageUrl } from '../../services/api';
 
 const EventDetail = () => {
   const { id } = useParams();
@@ -32,6 +32,7 @@ const EventDetail = () => {
 
   if (!event) return <LoadingSpinner label="Loading event" />;
 
+  const imageUrl = getImageUrl(event.bannerImage);
   const addTicket = (ticketType) => {
     addToCart(event, ticketType);
     setMessage(`${ticketType.name} ticket selected`);
@@ -48,8 +49,8 @@ const EventDetail = () => {
       <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <div className="overflow-hidden border-2 border-ink bg-white shadow-hard">
           <div className="aspect-[18/8] bg-denim">
-            {event.bannerImage ? (
-              <img src={event.bannerImage} alt={event.title} className="h-full w-full object-cover" />
+            {imageUrl ? (
+              <img src={imageUrl} alt={event.title} className="h-full w-full object-cover" />
             ) : (
               <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#315a80,#0e7c7b,#c9683f)]">
                 <span className="font-display text-8xl text-paper">{event.title.slice(0, 1)}</span>

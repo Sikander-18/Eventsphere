@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import api from '../../services/api';
+import api, { getImageUrl } from '../../services/api';
 
 const loadRazorpay = () => new Promise((resolve) => {
   if (window.Razorpay) return resolve(true);
@@ -106,8 +106,8 @@ const Checkout = () => {
                 <div key={ticket._id || index} className="border-2 border-ink p-4 bg-white flex flex-col items-center">
                   <span className="badge bg-signal text-xs">{ticket.ticketTypeName}</span>
                   <div className="mt-3 border-2 border-ink p-3 bg-white">
-                    {ticket.qrCodeImage ? (
-                      <img src={ticket.qrCodeImage} alt="Ticket QR" className="h-44 w-44" />
+                    {getImageUrl(ticket.qrCodeImage) ? (
+                      <img src={getImageUrl(ticket.qrCodeImage)} alt="Ticket QR" className="h-44 w-44" />
                     ) : (
                       <div className="h-44 w-44 grid place-items-center font-bold">QR Loading...</div>
                     )}

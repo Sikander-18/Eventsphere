@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { getImageUrl } from '../services/api';
 
 const QRModal = ({ ticket, onClose }) => {
   if (!ticket) return null;
@@ -9,6 +10,8 @@ const QRModal = ({ ticket, onClose }) => {
     eventId: ticket.event?._id || ticket.event,
     userId: ticket.user?._id || ticket.user
   });
+
+  const qrImageUrl = getImageUrl(ticket.qrCodeImage);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/70 p-4">
@@ -20,8 +23,8 @@ const QRModal = ({ ticket, onClose }) => {
           </button>
         </div>
         <div className="mt-5 grid place-items-center border-2 border-ink bg-white p-6">
-          {ticket.qrCodeImage ? (
-            <img src={ticket.qrCodeImage} alt="Ticket QR code" className="h-64 w-64" />
+          {qrImageUrl ? (
+            <img src={qrImageUrl} alt="Ticket QR code" className="h-64 w-64" />
           ) : (
             <QRCodeSVG value={qrValue} size={240} />
           )}

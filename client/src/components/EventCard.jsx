@@ -1,5 +1,6 @@
 import { Calendar, MapPin, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getImageUrl } from '../services/api';
 
 const formatDate = (date) => new Date(date).toLocaleDateString(undefined, {
   day: '2-digit',
@@ -9,13 +10,14 @@ const formatDate = (date) => new Date(date).toLocaleDateString(undefined, {
 
 const EventCard = ({ event }) => {
   const price = event.pricing?.min;
+  const imageUrl = getImageUrl(event.bannerImage);
 
   return (
     <article className="group border-2 border-ink bg-white shadow-soft transition hover:-translate-y-1 hover:shadow-hard">
       <Link to={`/events/${event._id}`}>
         <div className="relative aspect-[16/9] overflow-hidden border-b-2 border-ink bg-harbor">
-          {event.bannerImage ? (
-            <img src={event.bannerImage} alt={event.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+          {imageUrl ? (
+            <img src={imageUrl} alt={event.title} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
           ) : (
             <div className="grid h-full place-items-center bg-[linear-gradient(135deg,#0e7c7b_0%,#315a80_45%,#c9683f_100%)]">
               <span className="font-display text-5xl text-paper">{event.title?.slice(0, 1) || 'E'}</span>

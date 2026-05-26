@@ -38,7 +38,7 @@ exports.recommendations = async (req, res) => {
       Order.find({ user: req.user.id, paymentStatus: 'paid' }).populate('event', 'category').lean(),
       User.findById(req.user.id).populate('wishlist', 'category').lean(),
       Event.find({ status: 'published', startDate: { $gte: new Date() } })
-        .select('title category startDate venue isFeatured')
+        .select('title category startDate venue isFeatured bannerImage')
         .limit(30)
         .lean()
     ]);

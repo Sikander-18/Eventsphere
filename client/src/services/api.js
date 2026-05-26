@@ -12,5 +12,16 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Utility function to get proper image URL
+export const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  // If it's already a full URL or data URI, return as-is
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('data:')) {
+    return imageUrl;
+  }
+  // If it's a relative path, prepend API_URL
+  return `${API_URL}${imageUrl.startsWith('/') ? imageUrl : '/' + imageUrl}`;
+};
+
 export default api;
 
