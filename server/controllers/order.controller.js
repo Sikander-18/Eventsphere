@@ -132,6 +132,9 @@ const issueTicketsForOrder = async (order) => {
 
 exports.createOrder = async (req, res) => {
   try {
+    if (req.user.role !== 'attendee') {
+      return res.status(403).json({ message: 'Organisers and Admins cannot purchase tickets' });
+    }
     const { eventId, items, discountCode } = req.body;
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: 'Event not found' });

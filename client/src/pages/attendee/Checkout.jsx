@@ -113,6 +113,15 @@ const Checkout = () => {
                 Login / Register to Pay
               </button>
             </div>
+          ) : user.role !== 'attendee' ? (
+            <div className="space-y-2">
+              <p className="font-bold text-copper text-xs">
+                Organisers and Admins cannot purchase tickets. Please log in as an Attendee.
+              </p>
+              <button className="btn w-full font-bold text-sm" onClick={() => navigate('/login', { state: { from: { pathname: '/checkout' } } })}>
+                Log in with another Account
+              </button>
+            </div>
           ) : (
             <button className="btn w-full font-bold" disabled={!items.length || processing} onClick={pay}>
               <CreditCard size={18} /> {processing ? 'Processing...' : subtotal === 0 ? 'Confirm Free Tickets' : 'Pay Now'}
