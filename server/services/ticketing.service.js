@@ -206,5 +206,6 @@ module.exports = {
   ensureTicketQR,
   ensureTicketsHaveQR,
   hasConfirmedRegistration,
-  issueTicketsForOrder
+  issueTicketsForOrder,
+  syncTicketTypeSoldFloor
 };

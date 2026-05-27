@@ -31,7 +31,7 @@ const OrderHistory = () => {
               <p className="text-sm">{order.items.map((item) => `${item.quantity} ${item.name}`).join(', ')}</p>
             </div>
             <button className="btn secondary" disabled={order.refundStatus !== 'none'} onClick={() => refund(order._id)}>
-              <RotateCcw size={17} /> Request refund
+              <RotateCcw size={17} /> {order.total === 0 ? 'Cancel registration' : 'Request refund'}
             </button>
           </div>
         ))}

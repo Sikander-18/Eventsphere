@@ -121,7 +121,7 @@ const ManageTickets = () => {
               <h3 className="mt-2 font-display text-2xl">{ticket.name}</h3>
               <p className="font-semibold text-ink/70">{ticket.sold}/{ticket.capacity} sold</p>
               {ticket.earlyBirdExpiry && (
-                <p className="text-xs text-signal font-semibold mt-1">
+                <p className="text-xs text-copper font-semibold mt-1">
                   Sales end: {new Date(ticket.earlyBirdExpiry).toLocaleString()}
                 </p>
               )}

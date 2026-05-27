@@ -9,8 +9,16 @@ const formatDate = (date) => new Date(date).toLocaleDateString(undefined, {
 });
 
 const EventCard = ({ event }) => {
-  const price = event.pricing?.min;
+  const pricing = event.pricing;
   const imageUrl = getImageUrl(event.bannerImage);
+  
+  const getPriceDisplay = () => {
+    if (!pricing) return 'Tickets';
+    if (pricing.free && pricing.paid) return 'Free/Paid';
+    if (pricing.free) return 'Free';
+    if (pricing.paid && pricing.min > 0) return 'Paid';
+    return 'Tickets';
+  };
 
   return (
     <article className="group border-2 border-ink bg-white shadow-soft transition hover:-translate-y-1 hover:shadow-hard">
@@ -32,7 +40,7 @@ const EventCard = ({ event }) => {
         <div className="space-y-4 p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="badge bg-paper">{event.category}</span>
-            <span className="font-bold text-copper">{price === 0 ? 'Free' : price ? `From ₹${price}` : 'Tickets'}</span>
+            <span className="font-bold text-copper">{getPriceDisplay()}</span>
           </div>
           <h3 className="font-display text-2xl leading-tight">{event.title}</h3>
           <div className="grid gap-2 text-sm font-semibold text-ink/75">

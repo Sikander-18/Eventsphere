@@ -13,7 +13,7 @@ const TicketTypeCard = ({ ticketType, onAdd }) => {
             {isExpired ? 'Sales ended' : `${remaining} seats left`}
           </p>
           {ticketType.earlyBirdExpiry && (
-            <p className="text-[11px] font-semibold text-signal mt-1">
+            <p className="text-[11px] font-semibold text-copper mt-1">
               Sales end: {new Date(ticketType.earlyBirdExpiry).toLocaleString()}
             </p>
           )}

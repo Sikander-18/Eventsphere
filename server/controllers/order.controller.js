@@ -8,7 +8,9 @@ const {
   ensureSingleTicketRequest,
   ensureTicketsHaveQR,
   hasConfirmedRegistration,
-  issueTicketsForOrder
+  issueTicketsForOrder,
+  emitRegistrationUpdate,
+  syncTicketTypeSoldFloor
 } = require('../services/ticketing.service');
 
 const asItems = (items = []) => items
@@ -255,11 +257,49 @@ exports.requestRefund = async (req, res) => {
   try {
     const order = await Order.findOne({ _id: req.params.id, user: req.user.id });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    if (order.paymentStatus !== 'paid') return res.status(400).json({ message: 'Only paid orders can be refunded' });
+    if (order.refundStatus !== 'none') return res.status(400).json({ message: 'Refund already requested or processed' });
+
+    const tickets = await Ticket.find({ order: order._id });
+    if (tickets.some((ticket) => ticket.checkedIn)) {
+      return res.status(400).json({ message: 'Checked-in tickets cannot be canceled or refunded' });
+    }
+
+    const event = await Event.findById(order.event).select('title organiser');
+
+    if (order.total === 0) {
+      await Ticket.deleteMany({ order: order._id });
+      order.tickets = [];
+      order.refundStatus = 'approved';
+      order.paymentStatus = 'refunded';
+      await order.save();
+
+      for (const item of order.items) {
+        await syncTicketTypeSoldFloor(item.ticketType, order.event);
+      }
+
+      if (req.app?.get('io')) {
+        req.app.get('io').to(String(order.event)).emit('registration:notification', {
+          message: `${req.user.email} canceled registration for ${event?.title || 'the event'}`
+        });
+      }
+      await emitRegistrationUpdate(req.app, order.event);
+      return res.json(order);
+    }
+
+    if (order.paymentStatus !== 'paid') {
+      return res.status(400).json({ message: 'Only paid orders can be refunded' });
+    }
 
     order.refundStatus = 'requested';
     order.refundReason = req.body.reason || '';
     await order.save();
+
+    if (req.app?.get('io')) {
+      req.app.get('io').to(String(order.event)).emit('registration:notification', {
+        message: `${req.user.email} requested a refund for ${event?.title || 'the event'}`
+      });
+    }
+
     res.json(order);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -289,13 +329,51 @@ exports.updateRefund = async (req, res) => {
       return res.status(400).json({ message: 'Invalid refund action' });
     }
 
-    const order = await Order.findById(req.params.id).populate('event');
+    const order = await Order.findById(req.params.id).populate('event').populate('user', 'email');
     if (!order) return res.status(404).json({ message: 'Order not found' });
     if (req.user.role !== 'admin' && String(order.event.organiser) !== String(req.user.id)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
+    if (order.refundStatus !== 'requested') {
+      return res.status(400).json({ message: 'Refund request is not pending' });
+    }
 
-    order.refundStatus = action === 'approve' ? 'approved' : 'rejected';
+    if (action === 'approve') {
+      const tickets = await Ticket.find({ order: order._id });
+      if (tickets.some((ticket) => ticket.checkedIn)) {
+        return res.status(400).json({ message: 'Checked-in tickets cannot be refunded' });
+      }
+
+      await Ticket.deleteMany({ order: order._id });
+      order.tickets = [];
+      order.refundStatus = 'approved';
+      order.paymentStatus = 'refunded';
+      await order.save();
+
+      if (order.event) {
+        order.event.totalRevenue = Math.max((order.event.totalRevenue || 0) - order.total, 0);
+        await order.event.save();
+      }
+
+      for (const item of order.items) {
+        await syncTicketTypeSoldFloor(item.ticketType, order.event._id || order.event);
+      }
+
+      await emitRegistrationUpdate(req.app, order.event._id || order.event);
+      if (req.app?.get('io')) {
+        req.app.get('io').to(String(order.event._id || order.event)).emit('registration:notification', {
+          message: `${order.user?.email || 'A user'} refund approved for ${order.event?.title || 'the event'}`
+        });
+      }
+    } else {
+      order.refundStatus = 'rejected';
+      if (req.app?.get('io')) {
+        req.app.get('io').to(String(order.event._id || order.event)).emit('registration:notification', {
+          message: `${order.user?.email || 'A user'} refund rejected for ${order.event?.title || 'the event'}`
+        });
+      }
+    }
+
     await order.save();
     res.json(order);
   } catch (error) {

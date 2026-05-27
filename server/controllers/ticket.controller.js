@@ -105,6 +105,7 @@ exports.getMyTickets = async (req, res) => {
     const tickets = await Ticket.find({ user: req.user.id })
       .populate('event', 'title startDate endDate venue bannerImage')
       .populate('ticketType')
+      .populate('order', 'paymentStatus total refundStatus')
       .sort({ createdAt: -1 });
     res.json(await ensureTicketsHaveQR(tickets));
   } catch (error) {

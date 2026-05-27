@@ -1,4 +1,4 @@
-import { CalendarPlus, ClipboardCheck, Download, IndianRupee, Ticket } from 'lucide-react';
+import { CalendarPlus, ClipboardCheck, Download, IndianRupee, Ticket, Bell } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -8,6 +8,7 @@ import api, { API_URL } from '../../services/api';
 const Dashboard = () => {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({});
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const socket = useMemo(() => io(API_URL, { transports: ['websocket'] }), []);
 
@@ -15,6 +16,15 @@ const Dashboard = () => {
     socket.on('registration:update', ({ eventId, stats: nextStats }) => {
       if (!eventId || !nextStats) return;
       setStats((current) => ({ ...current, [eventId]: nextStats }));
+    });
+
+    socket.on('registration:notification', ({ message }) => {
+      if (!message) return;
+      const noteId = Date.now();
+      setNotifications((current) => [{ id: noteId, message }, ...current].slice(0, 5));
+      window.setTimeout(() => {
+        setNotifications((current) => current.filter((item) => item.id !== noteId));
+      }, 9000);
     });
 
     const load = async () => {
@@ -41,6 +51,7 @@ const Dashboard = () => {
 
     return () => {
       socket.off('registration:update');
+      socket.off('registration:notification');
       socket.disconnect();
     };
   }, [socket]);
@@ -61,6 +72,17 @@ const Dashboard = () => {
         <h1 className="font-display text-5xl">Organiser Dashboard</h1>
         <Link className="btn" to="/organiser/events/create"><CalendarPlus size={18} /> Create event</Link>
       </div>
+
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map((note) => (
+            <div key={note.id} className="panel flex items-center gap-3 border-l-4 border-copper bg-paper p-4 text-copper">
+              <Bell size={18} />
+              <span>{note.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="panel p-5"><IndianRupee /><p className="mt-3 text-3xl font-black">₹{totals.revenue}</p><span className="font-bold">Revenue</span></div>
